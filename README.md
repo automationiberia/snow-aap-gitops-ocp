@@ -10,7 +10,7 @@ The idea behind this repo is to implement the following flow of things:
 
 Repository to deploy Red Hat Ansible Automation Platform (AAP), Red Hat Openshift Pipelines (Tekton) and Red Hat Quay on Red Hat Openshift (OCP). It will be deployed an instance of an Private Automation Hub (PAH) and an instance of an Automation Controller (former Ansible Tower) on already deployed Openshift infraestructure. The OCP cluster is deployed in AWS and a shared filesystem is needed to deploy the PAH (which S3 is used in order to deploy it). It'll also deploy the Openshift Pipelines operator and an instance of the Quay operator (which also needs an S3 bucket).
 
-> NOTE: This repository also contains Ansible Playbooks to create the needed Service Now (SNOW) objects as code (REST MESSAGE, Workflow and a Catalog Item with it's associated variables).
+> NOTE: This repository also contains Ansible Playbooks to create the needed Service Now (SNOW) objects as code (REST MESSAGE, Workflow and a Catalog Item with it's associated variables). There's more detailed information at [playbooks/README.md](playbooks/README.md)
 
 The repo contains the following things:
 
@@ -102,4 +102,4 @@ $ ansible-navigator run bootstrap.yaml -i inventory -l cluster2 -m stdout --eei
     * Job Templates
     * Workflow Job Template 
 * Assign the needed roles to the Service Accounts to let connection to Quay
-* 
+* ACM related K8S objects
