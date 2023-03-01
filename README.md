@@ -103,7 +103,7 @@ $ ansible-navigator run bootstrap.yaml -i inventory -l cluster2 -m stdout --eei
     * Workflow Job Template
 * Assign the needed roles to the Service Accounts to let connection to Quay
 * ACM related K8S objects
-* Although our intention is to have all the content defined as code and created automatically, there are some points pending. They are placed in the repository as files, pending to be consumed by a playbook or similar in an automated way. These files are located at the directory `ObjectsToBeOrganized`, and mainly contains two directories:
+* Although our intention is to have all the content defined as code and created automatically, there are some points pending. They are placed in the repository as files, pending to be consumed by a playbook or similar in an automated way. These files are located at the directory [`ObjectsToBeOrganized`](ObjectsToBeOrganized), and mainly contains two directories:
     * acm: Contains the objects numbered with the order to be created successfully.
     * filetree_output: Contains the object definitions for the AAP. More information about how to use them in [redhat_cop.controller_configuration](https://github.com/redhat-cop/controller_configuration/tree/devel/roles/filetree_read).
     * sub-odf-multicluster-orchestrator.yaml: subscription to the ODF Multicluster Orchestrator Openshift Operator (not used by this demo)
