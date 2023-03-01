@@ -1,0 +1,13 @@
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: gitlab-runner-operator
+  namespace: demo-gitlab-runner
+  labels:
+    openshift.io/cluster-monitoring: "true"
+    argocd.argoproj.io/managed-by: openshift-gitops
+spec:
+  targetNamespaces:
+    - demo-gitlab-runner
+...

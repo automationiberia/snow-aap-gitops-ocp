@@ -1,0 +1,103 @@
+---
+apiVersion: automationhub.ansible.com/v1beta1
+kind: AutomationHub
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  labels:
+    app.kubernetes.io/component: automationhub
+    app.kubernetes.io/managed-by: automationhub-operator
+    app.kubernetes.io/name: hub-demo
+    app.kubernetes.io/operator-version: ''
+    app.kubernetes.io/part-of: hub-demo
+    openshift.io/cluster-monitoring: "true"
+    argocd.argoproj.io/managed-by: openshift-gitops
+  name: hub-demo
+  namespace: aap
+spec:
+  gunicorn_content_workers: 2
+  gunicorn_api_workers: 2
+  gunicorn_timeout: 90
+  nginx_proxy_send_timeout: 120s
+  nginx_proxy_connect_timeout: 120s
+  nginx_proxy_read_timeout: 120s
+  nginx_client_max_body_size: 10m
+  haproxy_timeout: 180s
+  route_tls_termination_mechanism: Edge
+  ingress_type: Route
+  loadbalancer_port: 80
+  no_log: true
+  storage_type: S3
+  file_storage_size: 100Gi
+  object_storage_s3_secret: s3-secret-automationhub-demo
+  file_storage_access_mode: ReadWriteMany
+  image_pull_policy: IfNotPresent
+  web:
+    replicas: 1
+    resource_requirements:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 300m
+        memory: 1Gi
+  content:
+    log_level: INFO
+    replicas: 2
+    resource_requirements:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: '1500m'
+        memory: 6Gi
+  postgres_storage_requirements:
+    limits:
+      storage: 50Gi
+    requests:
+      storage: 20Gi
+  api:
+    log_level: INFO
+    replicas: 1
+    resource_requirements:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+  postgres_resource_requirements:
+    limits:
+      cpu: '0'
+      memory: '0'
+    requests:
+      cpu: '0'
+      memory: '0'
+  redis_resource_requirements:
+    limits:
+      cpu: '300m'
+      memory: '1Gi'
+    requests:
+      cpu: '100m'
+      memory: '512Mi'
+  loadbalancer_protocol: http
+  resource_manager:
+    replicas: 1
+    resource_requirements:
+      limits:
+        cpu: '300m'
+        memory: '1Gi'
+      requests:
+        cpu: '100m'
+        memory: '512Mi'
+  worker:
+    replicas: 2
+    resource_requirements:
+      limits:
+        cpu: '1500m'
+        memory: '6Gi'
+      requests:
+        cpu: '100m'
+        memory: '512Mi'
+...

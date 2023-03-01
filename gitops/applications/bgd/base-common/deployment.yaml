@@ -1,0 +1,29 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: bgd
+  name: bgd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bgd
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: bgd
+    spec:
+      imagePullSecrets:
+        - name: bgd-demo-pull-secret
+      containers:
+        - image: php81-bgd-alpine
+          name: bgd
+          imagePullPolicy: Always
+          # env:
+          # - name: COLOR
+          #   value: "blue"
+          resources: {}
+...

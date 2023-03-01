@@ -1,0 +1,158 @@
+---
+- hosts: all
+  connection: local
+  gather_facts: false
+  module_defaults:
+    group/k8s:
+      api_key: "{{ ocp_api_key }}"
+      host: "{{ ocp_api_host }}"
+      validate_certs: "{{ ocp_api_validate_certs }}"
+  tasks:
+    - name: Create a S3 bucket to be used as Automation Hub repository storage (it must be a shared filesystem)
+      amazon.aws.s3_bucket:
+        name: "{{ s3_bucket_pah_name }}"
+        state: "{{ s3_bucket_state | default(aws_resources_state) | default('present') }}"
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ aws_region }}"
+
+    - name: Create a S3 bucket to be used as Quay repository storage (it must be a shared filesystem)
+      amazon.aws.s3_bucket:
+        name: "{{ s3_bucket_quay_name }}"
+        state: "{{ s3_bucket_state | default(aws_resources_state) | default('present') }}"
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ aws_region }}"
+
+    - name: Create a Ansible Automation Platform namespace
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          name: "{{ aap_ocp_namespace }}"
+          api_version: v1
+          kind: Namespace
+          metadata:
+            name: "{{ aap_ocp_namespace }}"
+            labels:
+              openshift.io/cluster-monitoring: "true"
+              argocd.argoproj.io/managed-by: openshift-gitops
+
+    - name: Create a Quay namespace
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          name: "{{ quay_ocp_namespace }}"
+          api_version: v1
+          kind: Namespace
+          metadata:
+            name: "{{ quay_ocp_namespace }}"
+            labels:
+              openshift.io/cluster-monitoring: "true"
+              argocd.argoproj.io/managed-by: openshift-gitops
+
+    - name: "Create Automation Hub secret to access S3 bucket"
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'templates/add_aws_s3_secret_pah.yaml.j2') }}"
+        wait: true
+
+    - name: "Set configuration S3 for Quay"
+      # https://access.redhat.com/documentation/en-us/red_hat_quay/3.8/html/configure_red_hat_quay/config-fields-intro
+      set_fact:
+        __config_bundle_secret: |
+          ALLOW_PULLS_WITHOUT_STRICT_LOGGING: false
+          SUPER_USERS:
+            - quayadmin
+          AUTHENTICATION_TYPE: Database
+          DEFAULT_TAG_EXPIRATION: 2w
+          ENTERPRISE_LOGO_URL: /static/img/RH_Logo_Quay_Black_UX-horizontal.svg
+          FEATURE_BUILD_SUPPORT: false
+          FEATURE_DIRECT_LOGIN: true
+          FEATURE_MAILING: false
+          REGISTRY_TITLE: Red Hat Quay
+          REGISTRY_TITLE_SHORT: Red Hat Quay
+          SETUP_COMPLETE: true
+          TAG_EXPIRATION_OPTIONS:
+            - 2w
+          TEAM_RESYNC_STALE_TIME: 60m
+          TESTING: false
+          DISTRIBUTED_STORAGE_CONFIG:
+            s3Storage:
+              - S3Storage
+              - s3_access_key: "{{ aws_access_key }}"
+                s3_secret_key: "{{ aws_secret_key }}"
+                s3_bucket: "{{ s3_bucket_quay_name }}"
+                storage_path: /datastorage/registry
+          DISTRIBUTED_STORAGE_DEFAULT_LOCATIONS: []
+          DISTRIBUTED_STORAGE_PREFERENCE:
+            - s3Storage
+
+    - name: "Create Quay secret to access S3 bucket"
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'templates/add_aws_s3_secret_quay.yaml.j2') }}"
+        wait: true
+
+    - name: "Install the Openshift GitOps operator"
+      kubernetes.core.k8s:
+        state: present
+        src: gitops/installation/gitops-operator.yaml
+        wait: true
+
+    - name: Wait until namespace openshift-gitops exists
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Namespace
+        name: openshift-gitops
+      register: gitops_namespace
+      until: gitops_namespace.resources[0] is defined and gitops_namespace.resources[0].status.phase == "Active"
+      retries: 100
+      delay: 2
+
+    - name: "Create the ArgoCD instance"
+      kubernetes.core.k8s:
+        state: present
+        src: gitops/installation/argocd-server.yaml
+        wait: true
+      register: argocd_res
+
+    - name: "Show the ArgoCD instance credentials"
+      block:
+        - name: Get the ArgoCD Route hostname
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: Route
+            name: openshift-gitops-server
+            namespace: openshift-gitops
+          register: route
+
+        - name: Get the ArgoCD admin password
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: Secret
+            name: openshift-gitops-cluster
+            namespace: openshift-gitops
+          register: secret
+
+        - debug:
+            msg:
+              - "ArgoCD Instance URL: https://{{ route.resources[0].spec.host }}"
+              - "ArgoCD admin password: {{ secret.resources[0].data['admin.password'] | b64decode }}"
+
+    - name: "Create the ArgoCD secret to access gitops-demo git repo"
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'templates/add_gitops_demo_repo.yaml.j2') }}"
+        wait: true
+      when:
+        - argocd_repository_secret_name is defined
+        - argocd_repository_password is defined
+        - argocd_repository_url is defined
+        - argocd_repository_username is defined
+
+    - name: "Create the ArgoCD Bootstrap Application"
+      kubernetes.core.k8s:
+        state: present
+        src: gitops/installation/argocd-app-bootstrap.yaml
+        wait: true
+...

@@ -1,0 +1,11 @@
+all:
+  children:
+    cluster1:
+      hosts:
+        cluster1.demo
+    cluster2:
+      hosts:
+        cluster2.demo
+    snow:
+      hosts:
+        <snow-instance>.service-now.com

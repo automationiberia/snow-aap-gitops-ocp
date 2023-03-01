@@ -1,0 +1,34 @@
+---
+## SNOW - REST MESSAGE HTTP Varibale Substitution
+- name: Retrieve our Variables Substitution
+  servicenow.itsm.api_info:
+    resource: sys_rest_message_fn_parameters
+    sysparm_query: name={{ snow_item_option.name }}
+  register: get_sys_rest_message_fn_parameters
+
+- set_fact:
+    snow_sys_rest_message_fn_parameters: "{{ get_sys_rest_message_fn_parameters.record | first }}"
+  when:
+    - get_sys_rest_message_fn_parameters.record is defined
+    - (get_sys_rest_message_fn_parameters.record | type_debug) is match('list')
+    - get_sys_rest_message_fn_parameters.record | length > 0
+
+- debug:
+    msg:
+      - "{{ get_sys_rest_message_fn_parameters.record }}"
+
+- block:
+    - name: Create Variables Substitution
+      servicenow.itsm.api:
+        resource: sys_rest_message_fn_parameters
+        action: post
+        data:
+          name: "{{ snow_item_option.name }}"
+          rest_message_function: "{{ snow_sys_rest_message_name }}"
+          type: "string"
+      register: new_get_sys_rest_message_fn_parameters
+
+    - set_fact:
+        snow_get_sys_rest_message_fn_parameters: "{{ new_get_sys_rest_message_fn_parameters.record }}"
+  when: (get_sys_rest_message_fn_parameters.record | length) == 0
+...

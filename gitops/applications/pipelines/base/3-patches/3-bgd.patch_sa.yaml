@@ -1,0 +1,28 @@
+---
+# - op: add
+#   path: /metadata
+#   value:
+#     annotations:
+#       argocd.argoproj.io/sync-wave: "3"
+- op: add
+  path: /secrets/0
+  value:
+    name: pipelines-demo-pull-secret
+- op: add
+  path: /imagePullSecrets/0
+  value:
+    name: pipelines-demo-pull-secret
+...
+# ---
+# kind: ServiceAccount
+# apiVersion: v1
+# metadata:
+#   name: pipeline
+#   namespace: pipelines-demo
+#   annotations:
+#     argocd.argoproj.io/sync-wave: "3"
+# secrets:
+#   - name: pipelines-demo-pull-secret
+# imagePullSecrets:
+#   - name: pipelines-demo-pull-secret
+# ...

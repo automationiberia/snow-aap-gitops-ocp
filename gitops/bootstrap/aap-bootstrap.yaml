@@ -1,0 +1,29 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: appset-aap-bootstrap
+  namespace: openshift-gitops
+spec:
+  generators:
+  - list:
+      elements:
+      - env: aap
+        url: https://kubernetes.default.svc
+  template:
+    metadata:
+      name: 'app-bootstrap-aap'
+    spec:
+      project: default
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+      source:
+        repoURL: "https://github.com/automationiberia/snow-aap-gitops-ocp.git"
+        targetRevision: "main"
+        path: 'gitops/applications/{{env}}/base'
+      destination:
+        namespace: 'aap'
+        server: "{{ url }}"
+...

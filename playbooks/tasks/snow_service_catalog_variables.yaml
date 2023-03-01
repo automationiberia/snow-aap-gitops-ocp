@@ -1,0 +1,65 @@
+---
+- name: Reset the get_cat_var variable
+  set_fact:
+    get_cat_var:
+
+- name: Retrieve our Catalog Variable
+  servicenow.itsm.api_info:
+    resource: item_option_new
+    sysparm_query: "name={{ snow_item_option.name }}^variable_set={{ item_option_set.sys_id }}"
+  register: get_cat_var
+- set_fact:
+    cat_var: "{{ get_cat_var.record | first }}"
+  when:
+    - get_cat_var.record is defined
+    - (get_cat_var.record | type_debug) is match('list')
+    - get_cat_var.record | length > 0
+
+- block:
+    - name: Create the Catalog Variable
+      servicenow.itsm.api:
+        resource: item_option_new
+        action: post
+        data:
+          name: "{{ snow_item_option.name }}"
+          variable_set: "{{ item_option_set.sys_id }}"
+          question_text: "{{ snow_item_option.question }}"
+          type: "{{ snow_item_option.type }}"
+          mandatory: "{{ snow_item_option.mandatory }}"
+          default_value: "{{ snow_item_option.default_value | default(omit) }}"
+      register: new_cat_var_set
+
+    - set_fact:
+        cat_var: "{{ new_cat_var_set.record }}"
+  when: (get_cat_var.record | length) == 0
+
+- name: Update the Catalog Variable
+  servicenow.itsm.api:
+    resource: item_option_new
+    action: patch
+    sys_id: "{{ cat_var.sys_id }}"
+    data:
+      name: "{{ snow_item_option.name }}"
+      variable_set: "{{ item_option_set.sys_id }}"
+      question_text: "{{ snow_item_option.question }}"
+      type: "{{ snow_item_option.type }}"
+      mandatory: "{{ snow_item_option.mandatory }}"
+      default_value: "{{ snow_item_option.default_value | default(omit) }}"
+  register: update_cat_var_set
+  when: (get_cat_var.record | length) > 0
+- set_fact:
+    cat_var: "{{ update_cat_var_set.record }}"
+
+- name: Create the multiple choices if needed
+  include_tasks:
+    file: snow_service_catalog_variable_choices.yaml
+  loop: "{{ snow_item_option.choices | default([]) }}"
+  loop_control:
+    loop_var: current_choice
+  vars:
+    current_question: "{{ cat_var.sys_id }}"
+  when:
+    - snow_item_option.choices is defined
+    - (snow_item_option.choices | type_debug) is match('list')
+    - snow_item_option.choices | length > 0
+...

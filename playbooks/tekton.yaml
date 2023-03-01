@@ -1,0 +1,172 @@
+---
+- hosts: all
+  connection: local
+  gather_facts: false
+  vars:
+    SNOW_TAG: "1.0.15"
+    SNOW_MESSAGE_TEXT: "The image tag that is being in use is {{ SNOW_TAG }}"
+    SNOW_ENV: "dev"
+    gitlab_api_url: "https://github.com/automationiberia/php81-bgd-alpine.git"  # Application source code
+    gitlab_validate_certs: false
+    gitlab_api_user: "<gitlab-username>"
+    gitlab_api_token: "<gitlab-user's-token>"
+    gitlab_api_user_mail: "<gitlab-user-email>"
+    gitlab_group: "<gitlab-group>"
+    gitlab_subgroup: "<gitlab-subgroup>"
+    gitlab_project: "php81-bgd-alpine"
+    gitlab_visibility: "public"
+    gitlab_default_branch: "main"
+    gitlab_http_protocol: "https"
+    gitlab_project_temp_dir: ./checkout_image
+    event_listener_url: "<event_listener-url>"
+  module_defaults:
+    group/k8s:
+      api_key: "{{ ocp_api_key }}"
+      host: "{{ ocp_api_host }}"
+      validate_certs: "{{ ocp_api_validate_certs }}"
+  tasks:
+    - name: "Main block"
+      block:
+        - name: "Check that the tag format is correct"
+          assert:
+            that:
+              - SNOW_TAG is match('^\d{1,3}\.\d{1,3}\.\d{1,3}$')
+            success_msg: "SNOW_TAG is well formatted: {{ SNOW_TAG }}"
+            fail_msg: "SNOW_TAG is NOT well formatted: {{ SNOW_TAG }}"
+
+        - name: Set git clone repo
+          set_fact:
+            gitlab_repo_clone: "{{ gitlab_http_protocol }}://{{ gitlab_api_user }}:{{ gitlab_api_token }}@{{ gitlab_api_url | regex_replace('http://|https://','') }}/{{ gitlab_group }}/{{ gitlab_subgroup }}/{{ gitlab_project }}.git"
+
+        - name: Clone a repo with separate git directory
+          ansible.builtin.git:
+            repo: "{{ gitlab_repo_clone }}"
+            dest: "{{ gitlab_project_temp_dir }}"
+          environment:
+              - GIT_SSL_NO_VERIFY: "true"
+
+        - name: Copy using inline content
+          ansible.builtin.copy:
+            content: "{{ SNOW_MESSAGE_TEXT }}"
+            dest: "{{ gitlab_project_temp_dir }}/files/application/read_from_file.txt"
+
+        - name: Check if local changes exist in git
+          command: git status
+          args:
+            chdir: "{{ gitlab_project_temp_dir }}"
+          register: git_status
+
+        - block:
+            - name: Git - Adding
+              command: "git add *"
+              args:
+                chdir: "{{ gitlab_project_temp_dir }}"
+
+            - name: Git - commiting
+              command: git commit -m "Text updated automatically"
+              args:
+                chdir: "{{ gitlab_project_temp_dir }}"
+              environment:
+                - GIT_COMMITTER_NAME: "{{ gitlab_api_user }}"
+                - GIT_COMMITTER_EMAIL: "{{ gitlab_api_user_mail }}"
+                - GIT_AUTHOR_NAME: "{{ gitlab_api_user }}"
+                - GIT_AUTHOR_EMAIL: "{{ gitlab_api_user_mail }}"
+
+            - name: Git - push
+              command: git push
+              args:
+                chdir: "{{ gitlab_project_temp_dir }}"
+              environment:
+                - GIT_SSL_NO_VERIFY: "true"
+          when: '"untracked files present" in git_status.stdout or "Changes not staged for commit" in git_status.stdout'
+
+        - name: Recursively remove temp directory
+          ansible.builtin.file:
+            path: "{{ gitlab_project_temp_dir }}"
+            state: absent
+
+        - name: "Call the Tekton Event Listener to start the Pipeline Run"
+          uri:
+            url: "{{ event_listener_url }}"
+            method: POST
+            body:
+              repository:
+                html_url: "{{ gitlab_api_url }}"
+              ref: "origin/{{ gitlab_default_branch }}"
+              tag: "{{ SNOW_TAG }}"
+            body_format: json
+            headers:
+              Content-Type: application/json
+            status_code: 202
+          register: result
+
+        - pause:
+            seconds: 5
+
+        - block:
+            - name: Wait until pipeline succeeded
+              kubernetes.core.k8s_info:
+                api_version: tekton.dev/v1beta1
+                kind: PipelineRun
+                label_selectors:
+                  - "triggers.tekton.dev/triggers-eventid={{ result.json.eventID }}"
+                namespace: pipelines-demo
+              register: pipelines_build_and_push
+              until:
+                -  pipelines_build_and_push.resources[0].status.conditions[0].reason in ["Succeeded","Failed"]
+                -  pipelines_build_and_push.resources[0].status.conditions[0].status in ["True","False"]
+                -  pipelines_build_and_push.resources[0].status.conditions[0].type is match("Succeeded")
+              retries: 200
+              delay: 2
+              failed_when: (pipelines_build_and_push.resources[0].status.conditions[0].reason is match("Failed") and pipelines_build_and_push.resources[0].status.conditions[0].status is match("False")) or
+                           (pipelines_build_and_push.resources[0].status.conditions[0].reason is match("Running") and pipelines_build_and_push.resources[0].status.conditions[0].status is match("Unknown"))
+              no_log: false
+          always:
+            - name: Debug
+              debug:
+                msg:
+                  - "{{ pipelines_build_and_push }}"
+
+        - name: Set git clone IaC
+          set_fact:
+            gitlab_project: aap_ocp_iac
+            gitlab_project_temp_dir: ./checkout_aap_ocp_iac
+
+        - name: Set git clone repo
+          set_fact:
+            gitlab_repo_clone: "{{ gitlab_http_protocol }}://{{ gitlab_api_user }}:{{ gitlab_api_token }}@{{ gitlab_api_url | regex_replace('http://|https://','') }}/{{ gitlab_group }}/{{ gitlab_subgroup }}/{{ gitlab_project }}.git"
+
+        - block:
+            - name: "Run tasks for the {{ SNOW_ENV }} environment"
+              include_tasks:
+                file: "tasks/tekton_tasks.yaml"
+              vars:
+                MY_SNOW_ENV: "{{ __current_env }}"
+              loop:
+                - "dev"
+                - "pre"
+              loop_control:
+                loop_var: __current_env
+          when: SNOW_ENV is match('dev')
+
+        - block:
+            - name: "Run tasks for the {{ SNOW_ENV }} environment"
+              include_tasks:
+                file: "tasks/tekton_tasks.yaml"
+              vars:
+                MY_SNOW_ENV: "{{ __current_env }}"
+              loop:
+                - "pro"
+              loop_control:
+                loop_var: __current_env
+          when: SNOW_ENV is match('pro')
+
+      rescue:
+        - name: "Set information for the Service Now Incident"
+          set_stats:
+            data:
+              failed_execution_id: "{{ lookup('env', 'JOB_ID') }}"
+        - name: "Exit with error"
+          fail:
+            msg: "Saliendo con error"
+...

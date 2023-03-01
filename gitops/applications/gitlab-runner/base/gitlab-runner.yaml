@@ -1,0 +1,12 @@
+---
+apiVersion: apps.gitlab.com/v1beta2
+kind: Runner
+metadata:
+  name: demo-gitlab-runner
+  namespace: demo-gitlab-runner
+spec:
+  gitlabUrl: 'https://<gitlab-instance>'
+  imagePullPolicy: Always
+  tags: 'controller-group, casc, demo'
+  token: gitlab-runner-secret
+...

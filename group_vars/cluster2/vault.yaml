@@ -1,0 +1,16 @@
+---
+# Amazon ccess credentials
+vault_aws_access_key: "<aws-access-key>"
+vault_aws_secret_key: "<aws-secret-key>"
+vault_aws_region: "<aws-region>"
+vault_s3_bucket_host: "<aws-s3-bucket-host>"
+# OCP credentials
+vault_ocp_api_key: "<ocp-api-key>"
+vault_ocp_api_host: "https://api.<ocp-api-host>:6443"
+vault_ocp_api_validate_certs: false
+# ArgoCD
+vault_argocd_repository_secret_name: "<argocd-secret-name-to-access-git-repo"
+vault_argocd_repository_username: "<git-repo-username>"
+vault_argocd_repository_password: "<git-repo-password>"
+vault_argocd_repository_url: "https://<git-repo-url>.git"
+...

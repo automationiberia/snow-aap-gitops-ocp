@@ -1,0 +1,5 @@
+---
+resources:
+  - subscription.yaml
+  - quay-registry.yaml
+...

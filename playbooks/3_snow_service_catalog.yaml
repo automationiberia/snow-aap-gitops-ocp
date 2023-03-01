@@ -1,0 +1,169 @@
+---
+- hosts: snow
+  connection: local
+  gather_facts: false
+  tasks:
+    # Add the catalog item
+    - name: Retrieve our Catalog
+      servicenow.itsm.api_info:
+        resource: sc_catalog
+        sysparm_query: "title={{ snow_catalog_title }}"
+      register: get_cat_catalog
+    - set_fact:
+        cat_catalog: "{{ get_cat_catalog.record | first }}"
+      when:
+        - get_cat_catalog.record is defined
+        - (get_cat_catalog.record | type_debug) is match('list')
+        - get_cat_catalog.record | length > 0
+
+    - name: Retrieve our Catalog Category
+      servicenow.itsm.api_info:
+        resource: sc_category
+        sysparm_query: "title={{ snow_category_title }}"
+      register: get_cat_category
+    - set_fact:
+        cat_category: "{{ get_cat_category.record | first }}"
+      when:
+        - get_cat_category.record is defined
+        - (get_cat_category.record | type_debug) is match('list')
+        - get_cat_category.record | length > 0
+
+    - name: Retrieve our Item Option Set
+      servicenow.itsm.api_info:
+        resource: item_option_new_set
+        sysparm_query: "title={{ snow_item_option_set_title }}"
+      register: get_item_option_set
+    - set_fact:
+        item_option_set: "{{ get_item_option_set.record | first }}"
+      when:
+        - get_item_option_set.record is defined
+        - (get_item_option_set.record | type_debug) is match('list')
+        - get_item_option_set.record | length > 0
+
+    - block:
+        - name: Create the Item Option Set
+          servicenow.itsm.api:
+            resource: item_option_new_set
+            action: post
+            data:
+              title: "{{ snow_item_option_set_title }}"
+              internal_name: "{{ snow_item_option_set_title }}"
+              short_description: "{{ snow_catalog_item_short_desc }}"
+              sc_catalogs: "{{ cat_catalog.sys_id }}"
+              category: "{{ cat_category.sys_id }}"
+              workflow: "{{ snow_workflow_name }}"
+          register: new_item_option_set
+
+        - set_fact:
+            item_option_set: "{{ new_item_option_set.record }}"
+      when: (get_item_option_set.record | length) == 0
+
+    - block:
+        - name: Update the Item Option Set
+          servicenow.itsm.api:
+            resource: item_option_new_set
+            action: patch
+            sys_id: "{{ item_option_set.sys_id }}"
+            data:
+              title: "{{ snow_item_option_set_title }}"
+              internal_name: "{{ snow_item_option_set_title }}"
+              short_description: "{{ snow_catalog_item_short_desc }}"
+              sc_catalogs: "{{ cat_catalog.sys_id }}"
+              category: "{{ cat_category.sys_id }}"
+              workflow: "{{ snow_workflow_name }}"
+          register: update_item_option_set
+
+        - set_fact:
+            item_option_set: "{{ update_item_option_set.record }}"
+      when: (get_item_option_set.record | length) == 0
+
+    - name: Retrieve our Catalog Item
+      servicenow.itsm.api_info:
+        resource: sc_cat_item
+        sysparm_query: "name={{ snow_catalog_item_name }}"
+      register: get_cat_item
+    - set_fact:
+        cat_item: "{{ get_cat_item.record | first }}"
+      when:
+        - get_cat_item.record is defined
+        - (get_cat_item.record | type_debug) is match('list')
+        - get_cat_item.record | length > 0
+
+    - block:
+        - name: Create the Catalog Item
+          servicenow.itsm.api:
+            resource: sc_cat_item
+            action: post
+            data:
+              name: "{{ snow_catalog_item_name }}"
+              short_description: "{{ snow_catalog_item_short_desc }}"
+              sc_catalogs: "{{ cat_catalog.sys_id }}"
+              category: "{{ cat_category.sys_id }}"
+              workflow: "{{ snow_workflow_name }}"
+          register: new_cat_item
+
+        - set_fact:
+            cat_item: "{{ new_cat_item.record }}"
+      when: (get_cat_item.record | length) == 0
+
+    - name: Update the Catalog Item
+      servicenow.itsm.api:
+        resource: sc_cat_item
+        action: patch
+        sys_id: "{{ cat_item.sys_id }}"
+        data:
+          name: "{{ snow_catalog_item_name }}"
+          short_description: "{{ snow_catalog_item_short_desc }}"
+          sc_catalogs: "{{ cat_catalog.sys_id }}"
+          category: "{{ cat_category.sys_id }}"
+          workflow: "{{ snow_workflow_name }}"
+      when: (get_cat_item.record | length) > 0
+
+    - name: Retrieve our Catalog Variable Set
+      servicenow.itsm.api_info:
+        resource: io_set_item
+        sysparm_query: "sc_cat_item.name={{ snow_catalog_item_name }}"
+      register: get_cat_var_set
+    - set_fact:
+        cat_var_set: "{{ get_cat_var_set.record | first }}"
+      when:
+        - get_cat_var_set.record is defined
+        - (get_cat_var_set.record | type_debug) is match('list')
+        - get_cat_var_set.record | length > 0
+
+    - block:
+        - name: Create the Catalog Variable Set
+          servicenow.itsm.api:
+            resource: io_set_item
+            action: post
+            data:
+              title: "{{ snow_catalog_variable_set_title }}"
+              sc_cat_item: "{{ cat_item.sys_id }}"
+              variable_set: "{{ item_option_set.sys_id }}"
+          register: new_cat_var_set
+
+        - set_fact:
+            cat_var_set: "{{ new_cat_var_set.record }}"
+      when: (get_cat_var_set.record | length) == 0
+
+    - block:
+        - name: Update the Catalog Variable Set
+          servicenow.itsm.api:
+            resource: io_set_item
+            action: patch
+            sys_id: "{{ cat_var_set.sys_id }}"
+            data:
+              title: "{{ snow_catalog_variable_set_title }}"
+              sc_cat_item: "{{ cat_item.sys_id }}"
+              variable_set: "{{ item_option_set.sys_id }}"
+          register: update_cat_var_set
+        - set_fact:
+            cat_var_set: "{{ update_cat_var_set.record }}"
+      when: (get_cat_var_set.record | length) > 0
+
+    - include_tasks:
+        file: tasks/snow_service_catalog_variables.yaml
+      loop: "{{ snow_item_options }}"
+      loop_control:
+        loop_var: snow_item_option
+...

@@ -1,0 +1,33 @@
+---
+apiVersion: automationcontroller.ansible.com/v1beta1
+kind: AutomationController
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  labels:
+    app.kubernetes.io/component: automationcontroller
+    app.kubernetes.io/managed-by: automationcontroller-operator
+    app.kubernetes.io/name: controller-dev-demo
+    app.kubernetes.io/operator-version: ''
+    app.kubernetes.io/part-of: controller-dev-demo
+    openshift.io/cluster-monitoring: "true"
+    argocd.argoproj.io/managed-by: openshift-gitops
+  name: controller-dev-demo
+  namespace: aap
+spec:
+  create_preload_data: true
+  route_tls_termination_mechanism: Edge
+  garbage_collect_secrets: false
+  ingress_type: Route
+  loadbalancer_port: 80
+  image_pull_policy: IfNotPresent
+  projects_storage_size: 8Gi
+  task_privileged: false
+  projects_storage_access_mode: ReadWriteMany
+  projects_persistence: false
+  replicas: 1
+  admin_user: "admin"
+  loadbalancer_protocol: http
+  nodeport_port: 30080
+...

@@ -1,0 +1,40 @@
+---
+- name: Retrieve our Choice
+  servicenow.itsm.api_info:
+    resource: question_choice
+    sysparm_query: "text={{ current_choice.text }}"
+  register: get_choice
+- set_fact:
+    choice: "{{ get_choice.record | first }}"
+  when:
+    - get_choice.record is defined
+    - (get_choice.record | type_debug) is match('list')
+    - get_choice.record | length > 0
+
+- block:
+    - name: Create the Choice "{{ current_choice.text }}"
+      servicenow.itsm.api:
+        resource: question_choice
+        action: post
+        data:
+          text: "{{ current_choice.text }}"
+          value: "{{ current_choice.value }}"
+          question: "{{ current_question }}"
+      register: new_choice
+
+    - set_fact:
+        choice: "{{ new_choice.record }}"
+  when: (get_choice.record | length) == 0
+
+- name: Update the Choice "{{ current_choice.text }}"
+  servicenow.itsm.api:
+    resource: question_choice
+    action: patch
+    sys_id: "{{ choice.sys_id }}"
+    data:
+      text: "{{ current_choice.text }}"
+      value: "{{ current_choice.value }}"
+      question: "{{ current_question }}"
+  when: (get_choice.record | length) > 0
+
+...

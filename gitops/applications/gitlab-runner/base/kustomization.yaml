@@ -1,0 +1,10 @@
+---
+resources:
+  - namespace.yaml
+  - operatorgroup.yaml
+  - subscription.yaml
+  - gitlab-runner-secret.yaml
+  - gitlab-runner-role-binding.yaml
+  - gitlab-runner-role.yaml
+#  - gitlab-runner.yaml
+...

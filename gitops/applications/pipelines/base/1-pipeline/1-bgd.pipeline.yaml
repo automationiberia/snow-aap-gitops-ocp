@@ -1,0 +1,60 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  name: build-and-push
+  namespace: pipelines-demo
+spec:
+  params:
+    - default: "https://github.com/automationiberia/snow-aap-gitops-ocp.git"
+      description: url of the git repo for the code of deployment
+      name: git-url
+      type: string
+    - default: main
+      description: revision to be used from repo of the code for deployment
+      name: git-revision
+      type: string
+    - default: <quay-registry>/automationiberia/php81-bgd-alpine
+      description: image to be build from the code
+      name: IMAGE
+      type: string
+    - default: latest
+      description: Image Tag
+      name: TAG
+      type: string
+  tasks:
+    - name: fetch-repository
+      params:
+        - name: url
+          value: $(params.git-url)
+        - name: subdirectory
+          value: ''
+        - name: deleteExisting
+          value: 'true'
+        - name: revision
+          value: $(params.git-revision)
+      taskRef:
+        kind: ClusterTask
+        name: git-clone-1-7-0
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+    - name: build-and-push-image
+      params:
+        - name: IMAGE
+          value: '$(params.IMAGE):$(params.TAG)'
+        - name: DOCKERFILE
+          value: Containerfile
+      runAfter:
+        - fetch-repository
+      taskRef:
+        kind: ClusterTask
+        name: buildah
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+  workspaces:
+    - name: shared-workspace
+...

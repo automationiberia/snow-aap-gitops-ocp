@@ -1,0 +1,33 @@
+---
+- hosts: all
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: "Get the output of the job"
+      ansible.builtin.get_url:
+        url: "{{ lookup('env', 'CONTROLLER_HOST') }}/api/v2/jobs/{{ failed_execution_id }}/stdout/?format=txt_download"
+        username: "{{ lookup('env', 'CONTROLLER_USERNAME') }}"
+        password: "{{ lookup('env', 'CONTROLLER_PASSWORD') }}"
+        force_basic_auth: true
+        dest: "./{{ failed_execution_id }}_txt_download.txt"
+
+    - name: "Create new incident"
+      servicenow.itsm.incident:
+        state: new
+        short_description: "New App deployment has failed incident ({{ SNOW_ENV }})"
+        attachments:
+          - path: "./{{ failed_execution_id }}_txt_download.txt"
+        impact: high
+        urgency: high
+      register: incident_register
+
+    - debug:
+        msg:
+          - "Incident URL: {{ lookup('env', 'SN_HOST') }}/nav_to.do?uri=incident.do?sys_id={{ incident_register.record.sys_id }}%26sysparm_view=ess"
+          - "Incident Number: {{ incident_register.record.number }}"
+
+    # - name: Update incident
+    #   servicenow.itsm.incident:
+    #     number: "{{ incident_register.record.number }}"
+    #     state: in_progress
+...

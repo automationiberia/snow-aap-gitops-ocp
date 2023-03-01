@@ -1,0 +1,472 @@
+---
+- hosts: snow
+  connection: local
+  gather_facts: false
+  tasks:
+    # Main Workflow
+    - name: Retrieve our Workflow
+      servicenow.itsm.api_info:
+        resource: wf_workflow
+        sysparm_query: "name={{ snow_workflow_name }}"
+      register: get_workflow
+    - set_fact:
+        workflow: "{{ get_workflow.record | first }}"
+      when:
+        - get_workflow.record is defined
+        - (get_workflow.record | type_debug) is match('list')
+        - get_workflow.record | length > 0
+
+    - block:
+        - name: Create the Workflow
+          servicenow.itsm.api:
+            resource: wf_workflow
+            action: post
+            data:
+              short_description: "{{ snow_workflow_short_description }}"
+              name: "{{ snow_workflow_name }}"
+              published: true
+              table: "sc_request"
+          register: new_workflow
+
+        - set_fact:
+            workflow: "{{ new_workflow.record }}"
+      when: (get_workflow.record | length) == 0
+
+    - block:
+        - name: Update the Workflow
+          servicenow.itsm.api:
+            resource: wf_workflow
+            action: patch
+            sys_id: "{{ workflow.sys_id }}"
+            data:
+              short_description: "{{ snow_workflow_short_description }}"
+              name: "{{ snow_workflow_name }}"
+              published: true
+              table: "sc_request"
+          register: update_workflow
+
+        - set_fact:
+            workflow: "{{ update_workflow.record }}"
+      when: (get_workflow.record | length) > 0
+
+    # Main Workflow Version
+    - name: Retrieve our Workflow Version
+      servicenow.itsm.api_info:
+        resource: wf_workflow_version
+        sysparm_query: "name={{ snow_workflow_name }}"
+      register: get_workflow_version
+    - set_fact:
+        workflow_version: "{{ get_workflow_version.record | first }}"
+      when:
+        - get_workflow_version.record is defined
+        - (get_workflow_version.record | type_debug) is match('list')
+        - get_workflow_version.record | length > 0
+
+    - block:
+        - name: Create the Workflow Version
+          servicenow.itsm.api:
+            resource: wf_workflow_version
+            action: post
+            data:
+              short_description: "{{ snow_workflow_short_description }}"
+              name: "{{ snow_workflow_name }}"
+              published: true
+              table: "sc_request"
+              workflow: "{{ workflow.sys_id }}"
+          register: new_workflow_version
+
+        - set_fact:
+            workflow_version: "{{ new_workflow_version.record }}"
+      when: (get_workflow_version.record | length) == 0
+
+    - name: Update the Workflow Version
+      servicenow.itsm.api:
+        resource: wf_workflow_version
+        action: patch
+        sys_id: "{{ workflow_version.sys_id }}"
+        data:
+          short_description: "{{ snow_workflow_short_description }}"
+          name: "{{ snow_workflow_name }}"
+          published: true
+          table: "sc_request"
+          workflow: "{{ workflow.sys_id }}"
+      register: update_workflow_version
+
+    - set_fact:
+        workflow_version: "{{ update_workflow_version.record }}"
+      when: (get_workflow_version.record | length) > 0
+
+    # Create our Workflow Activity (Begin)
+    - name: Retrieve our Workflow Activity (Begin)
+      servicenow.itsm.api_info:
+        resource: wf_activity
+        sysparm_query: "workflow_version={{ workflow_version.sys_id }}^name=Begin"
+      register: get_wf_activity_begin
+    - set_fact:
+        wf_activity_begin: "{{ get_wf_activity_begin.record | first }}"
+      when:
+        - get_wf_activity_begin.record is defined
+        - (get_wf_activity_begin.record | type_debug) is match('list')
+        - get_wf_activity_begin.record | length > 0
+
+    - block:
+        - name: Create our Workflow Activty (Begin)
+          servicenow.itsm.api:
+            resource: wf_activity
+            action: post
+            data:
+              short_description: Begin
+              name: "Begin"
+              activity_definition: "Begin"
+              workflow_version: "{{ workflow_version.sys_id }}"
+              x: 0
+              y: 0
+          register: new_wf_activity_begin
+        - set_fact:
+            wf_activity_begin: "{{ new_wf_activity_begin.record }}"
+      when: (get_wf_activity_begin.record | length) == 0
+
+    - block:
+        - name: Update our Workflow Activty (Begin)
+          servicenow.itsm.api:
+            resource: wf_activity
+            action: patch
+            sys_id: "{{ wf_activity_begin.sys_id }}"
+            data:
+              short_description: Begin
+              name: "Begin"
+              activity_definition: "Begin"
+              workflow_version: "{{ workflow_version.sys_id }}"
+              x: 0
+              y: 0
+          register: update_wf_activity_begin
+        - set_fact:
+            wf_activity_begin: "{{ update_wf_activity_begin.record }}"
+      when: (get_wf_activity_begin.record | length) == 0
+
+    # Update the workflow to set the starting Activity
+    - name: Update the Workflow Version
+      servicenow.itsm.api:
+        resource: wf_workflow_version
+        action: patch
+        sys_id: "{{ workflow_version.sys_id }}"
+        data:
+          short_description: "{{ snow_workflow_short_description }}"
+          name: "{{ snow_workflow_name }}"
+          published: true
+          table: "sc_request"
+          workflow: "{{ workflow.sys_id }}"
+          start: "{{ wf_activity_begin.sys_id }}"
+      register: update_workflow_version
+
+    - set_fact:
+        workflow_version: "{{ update_workflow_version.record }}"
+      when: (get_workflow_version.record | length) > 0
+
+    # Create our Workflow Activity (End)
+    - name: Retrieve our Workflow Activity (End)
+      servicenow.itsm.api_info:
+        resource: wf_activity
+        sysparm_query: "workflow_version={{ workflow_version.sys_id }}^name=End"
+      register: get_wf_activity_end
+    - set_fact:
+        wf_activity_end: "{{ get_wf_activity_end.record | first }}"
+      when:
+        - get_wf_activity_end.record is defined
+        - (get_wf_activity_end.record | type_debug) is match('list')
+        - get_wf_activity_end.record | length > 0
+
+    - block:
+        - name: Create our Workflow Activty (End)
+          servicenow.itsm.api:
+            resource: wf_activity
+            action: post
+            data:
+              short_description: End
+              name: "End"
+              activity_definition: "End"
+              workflow_version: "{{ workflow_version.sys_id }}"
+              x: 310
+              y: 310
+          register: new_wf_activity_end
+        - set_fact:
+            wf_activity_end: "{{ new_wf_activity_end.record }}"
+      when: (get_wf_activity_end.record | length) == 0
+
+    - block:
+        - name: Update our Workflow Activty (End)
+          servicenow.itsm.api:
+            resource: wf_activity
+            action: patch
+            sys_id: "{{ wf_activity_end.sys_id }}"
+            data:
+              short_description: End
+              name: "End"
+              activity_definition: "End"
+              workflow_version: "{{ workflow_version.sys_id }}"
+              x: 310
+              y: 310
+          register: update_wf_activity_end
+        - set_fact:
+            wf_activity_end: "{{ update_wf_activity_end.record }}"
+      when: (get_wf_activity_end.record | length) == 0
+
+    # Create our Workflow Activity
+    - name: Retrieve our Workflow Activity
+      servicenow.itsm.api_info:
+        resource: wf_activity
+        sysparm_query: "name={{ snow_workflow_activity_name }}"
+      register: get_wf_activity
+    - set_fact:
+        wf_activity: "{{ get_wf_activity.record | first }}"
+      when:
+        - get_wf_activity.record is defined
+        - (get_wf_activity.record | type_debug) is match('list')
+        - get_wf_activity.record | length > 0
+
+    - block:
+        - name: Create the wf_activity to run our script
+          servicenow.itsm.api:
+            resource: wf_activity
+            action: post
+            data:
+              short_description: demo-flow-test
+              name: "{{ snow_workflow_activity_name }}"
+              activity_definition: "RUN SCRIPT"
+              workflow_version: "{{ workflow_version.sys_id }}"
+              x: 155
+              y: 155
+          register: new_wf_activity
+        - set_fact:
+            wf_activity: "{{ new_wf_activity.record }}"
+      when: (get_wf_activity.record | length) == 0
+
+    - block:
+        - name: Update the wf_activity to run our script
+          servicenow.itsm.api:
+            resource: wf_activity
+            action: patch
+            sys_id: "{{ wf_activity.sys_id }}"
+            data:
+              short_description: demo-flow-test
+              name: "{{ snow_workflow_activity_name }}"
+              activity_definition: "RUN SCRIPT"
+              workflow_version: "{{ workflow_version.sys_id }}"
+              x: 155
+              y: 155
+          register: new_wf_activity
+        - set_fact:
+            wf_activity: "{{ new_wf_activity.record }}"
+      when: (get_wf_activity.record | length) == 0
+
+    # Create our Workflow Contidion and Transition (Begin)
+    - name: Retrieve our Workflow Condition (Begin)
+      servicenow.itsm.api_info:
+        resource: wf_condition
+        sysparm_query: "activity={{ wf_activity_begin.sys_id }}"
+      register: get_wf_condition
+
+    - set_fact:
+        wf_condition_begin: "{{ get_wf_condition.record | first }}"
+      when:
+        - get_wf_condition.record is defined
+        - (get_wf_condition.record | type_debug) is match('list')
+        - get_wf_condition.record | length > 0
+
+    - name: Retrieve our Workflow Transition (Begin)
+      servicenow.itsm.api_info:
+        resource: wf_transition
+        sysparm_query: "condition.sys_idSTARTSWITH{{ wf_condition_begin.sys_id }}"
+      register: get_wf_transition_begin
+
+    - set_fact:
+        wf_transition_begin: "{{ get_wf_transition_begin.record | first }}"
+      when:
+        - get_wf_transition_begin.record is defined
+        - (get_wf_transition_begin.record | type_debug) is match('list')
+        - get_wf_transition_begin.record | length > 0
+
+    - block:
+        - name: Create the wf_transition to Begin our Workflow
+          servicenow.itsm.api:
+            resource: wf_transition
+            action: post
+            data:
+              condition: "{{ wf_condition_begin.sys_id }}"
+              from: "{{ workflow_version.start }}"
+              to: "{{ wf_activity.sys_id }}"
+          register: new_wf_transition_begin
+        - set_fact:
+            wf_transition_begin: "{{ new_wf_transition_begin.record }}"
+      when: (get_wf_transition_begin.record | length) == 0
+
+    - block:
+        - name: Update the wf_transition to Begin our Workflow
+          servicenow.itsm.api:
+            resource: wf_transition
+            action: patch
+            sys_id: "{{ wf_transition_begin.sys_id }}"
+            data:
+              condition: "{{ wf_condition_begin.sys_id }}"
+              from: "{{ workflow_version.start }}"
+              to: "{{ wf_activity.sys_id }}"
+          register: update_wf_transition_begin
+        - set_fact:
+            wf_transition_begin: "{{ update_wf_transition_begin.record }}"
+      when: (get_wf_transition_begin.record | length) > 0
+
+    # Create our Workflow Contidion and Transition (Our Activity)
+    - name: Retrieve our Workflow Condition (Our Activity)
+      servicenow.itsm.api_info:
+        resource: wf_condition
+        sysparm_query: "activity={{ wf_activity.sys_id }}"
+      register: get_our_wf_condition
+
+    - set_fact:
+        our_wf_condition: "{{ get_our_wf_condition.record | first }}"
+      when:
+        - get_our_wf_condition.record is defined
+        - (get_our_wf_condition.record | type_debug) is match('list')
+        - get_our_wf_condition.record | length > 0
+
+    - name: Retrieve our Workflow Transition (Our Activity)
+      servicenow.itsm.api_info:
+        resource: wf_transition
+        sysparm_query: "condition.sys_idSTARTSWITH{{ our_wf_condition.sys_id }}"
+      register: get_our_wf_transition
+
+    - set_fact:
+        our_wf_transition: "{{ get_our_wf_transition.record | first }}"
+      when:
+        - get_our_wf_transition.record is defined
+        - (get_our_wf_transition.record | type_debug) is match('list')
+        - get_our_wf_transition.record | length > 0
+
+    - block:
+        - name: Create the wf_transition to run our script
+          servicenow.itsm.api:
+            resource: wf_transition
+            action: post
+            data:
+              condition: "{{ our_wf_condition.sys_id }}"
+              from: "{{ wf_activity.sys_id }}"
+              to: "{{ wf_activity_end.sys_id }}"
+          register: new_our_wf_transition
+        - set_fact:
+            our_wf_transition: "{{ new_our_wf_transition.record }}"
+      when: (get_our_wf_transition.record | length) == 0
+
+    - block:
+        - name: Update the wf_transition to run our script
+          servicenow.itsm.api:
+            resource: wf_transition
+            action: patch
+            sys_id: "{{ our_wf_transition }}"
+            data:
+              condition: "{{ our_wf_condition.sys_id }}"
+              from: "{{ wf_activity.sys_id }}"
+              to: "{{ wf_activity_end.sys_id }}"
+          register: update_our_wf_transition
+        - set_fact:
+            our_wf_transition: "{{ update_our_wf_transition.record }}"
+      when: (get_our_wf_transition.record | length) > 0
+
+    #################################### TO FIX ####################################
+    #################################### TO FIX ####################################
+    #################################### TO FIX ####################################
+    # Try to set the script to run in our activity (not working)
+    # - name: Retrieve our sys_variable_value Variable
+    #   servicenow.itsm.api_info:
+    #     resource: sys_variable_value
+    #     sysparm_query: "document_key={{ wf_activity.sys_id }}"
+    #   register: get_our_sys_variable_value
+
+    # - set_fact:
+    #     our_sys_variable_value: "{{ get_our_sys_variable_value.record | first }}"
+    #   when:
+    #     - get_sys_variable_valuetion.record is defined
+    #     - (get_sys_variable_valuetion.record | type_debug) is match('list')
+    #     - get_sys_variable_valuetion.record | length > 0
+
+    # - block:
+    #     - name: Create our sys_variable_value Variable
+    #       servicenow.itsm.api:
+    #         resource: sys_variable_value
+    #         action: post
+    #         data:
+    #           document_key: "{{ wf_activity.sys_id }}"
+    #           variable: "Demo_ServiceNow_Gitops_Script_Variable"
+    #           value: |-
+    #             try {
+    #               var r = new sn_ws.RESTMessageV2('{{ snow_sys_rest_message_fn_rest_message }}', '{{ snow_sys_rest_message_name }}');
+    #               {% for variable in snow_item_options -%}
+    #               r.setStringParameterNoEscape('{{ variable.param_name }}', current.variables.{{ variable.name }});
+    #               {% endfor -%}
+    #               r.setStringParameterNoEscape('snow_request', current.request.number);
+
+    #               var response = r.execute();
+    #               var responseBody = response.getBody();
+    #               var httpStatus = response.getStatusCode();
+    #             }
+    #             catch(ex) {
+    #               var message = ex.message;
+    #             }
+    #       register: new_our_sys_variable_value
+    #     - set_fact:
+    #         our_sys_variable_value: "{{ new_our_sys_variable_value.record }}"
+    #   when: (get_our_sys_variable_value.record | length) == 0
+
+    # - block:
+    #     - name: Update our sys_variable_value Variable
+    #       servicenow.itsm.api:
+    #         resource: sys_variable_value
+    #         action: patch
+    #         sys_id: "{{ our_sys_variable_value.sys_id }}"
+    #         data:
+    #           document_key: "{{ wf_activity.sys_id }}"
+    #           variable: "Demo_ServiceNow_Gitops_Script_Variable"
+    #           value: |-
+    #             try {
+    #               var r = new sn_ws.RESTMessageV2('{{ snow_sys_rest_message_fn_rest_message }}', '{{ snow_sys_rest_message_name }}');
+    #               {% for variable in snow_item_options -%}
+    #               r.setStringParameterNoEscape('{{ variable.param_name }}', current.variables.{{ variable.name }});
+    #               {% endfor -%}
+    #               r.setStringParameterNoEscape('snow_request', current.request.number);
+
+    #               var response = r.execute();
+    #               var responseBody = response.getBody();
+    #               var httpStatus = response.getStatusCode();
+    #             }
+    #             catch(ex) {
+    #               var message = ex.message;
+    #             }
+    #       register: update_our_sys_variable_value
+    #     - set_fact:
+    #         our_sys_variable_value: "{{ update_our_sys_variable_value.record }}"
+    #   when: (get_our_sys_variable_value.record | length) > 0
+
+    - name: "Show the Script to be added manually at our Workflow Activity: {{ url }}"
+      pause:
+        seconds: 1
+        prompt: |
+          try {
+            var r = new sn_ws.RESTMessageV2('{{ snow_sys_rest_message_fn_rest_message }}', '{{ snow_sys_rest_message_name }}');
+            {% for variable in snow_item_options -%}
+            r.setStringParameterNoEscape('{{ variable.param_name }}', current.variables.{{ variable.name }});
+            {% endfor -%}
+            r.setStringParameterNoEscape('snow_request', current.request.number);
+
+            var response = r.execute();
+            var responseBody = response.getBody();
+            var httpStatus = response.getStatusCode();
+          }
+          catch(ex) {
+            var message = ex.message;
+          }
+      vars:
+        url: "{{ lookup('env', 'SN_HOST') }}/nav_to.do?uri=wf_activity.do?sys_id={{ wf_activity.sys_id }}%26sysparm_view=diagrammer"
+
+    #################################### TO FIX ####################################
+    #################################### TO FIX ####################################
+    #################################### TO FIX ####################################
+...

@@ -1,0 +1,30 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  name: debug-before-build
+  namespace: pipelines-demo
+spec:
+  description: gather image information
+  # params:
+  #   - default: ""
+  #     description: URL of the image to gather the info from
+  #     name: ImageURL
+  #     type: string
+  #   - default: "true"
+  #     description: Verify the TLS on the registry
+  #     name: TLSverify
+  #     type: string
+  steps:
+    - image: quay.io/automationiberia/ee-ocp-aap-iac-casc
+      name: skopeo-inspect
+      resources: {}
+      script: |
+        pwd
+        ls -lart
+  workspaces:
+    - name: shared-workspace
+...
+

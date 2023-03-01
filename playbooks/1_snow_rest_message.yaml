@@ -1,0 +1,362 @@
+---
+- hosts: snow
+  connection: local
+  gather_facts: false
+  tasks:
+    ## CONTROLLER - SETTINGS
+    - name: "Controller - Set Allow External Users to Create Oauth2 Tokens to True"
+      ansible.builtin.include_role:
+        name: redhat_cop.controller_configuration.settings
+      vars:
+        controller_settings:
+          - name: ALLOW_OAUTH2_FOR_EXTERNAL_USERS
+            value: True
+
+    ## CONTROLLER - APPLICATION
+    - name: "Get the API list of all Applications in Organization {{ orgs }}"
+      ansible.builtin.set_fact:
+        __controller_api_applications: "{{ query(controller_api_plugin, 'applications',
+                                             query_params={'organization': 1, 'name': controller_application_name},
+                                             host=controller_hostname, password=controller_password,username=controller_username, verify_ssl=controller_validate_certs,
+                                             return_all=true, max_objects=query_controller_api_max_objects)
+                                        }}"
+    - block:
+        - name: "Delete Application on AAP"
+          ansible.builtin.include_role:
+            name: redhat_cop.controller_configuration.applications
+          vars:
+            controller_applications:
+              - name: "{{ controller_application_name }}"
+                state: "absent"
+                organization: "Default"
+      when:
+        - __controller_api_applications[0].name is defined
+
+    - block:
+        - name: Create Application on AAP
+          uri:
+            url: "https://{{ controller_hostname }}/api/v2/applications/"
+            method: POST
+            headers:
+              Content-Type: application/json
+            body:
+              name: "{{ controller_application_name }}"
+              description: description
+              client_type: "confidential"
+              redirect_uris: "{{ snow_oauth_provider_redirect_url }}"
+              authorization_grant_type: authorization-code
+              skip_authorization: false
+              organization: 1
+            body_format: json
+            url_username: "{{ controller_username }}"
+            url_password: "{{ controller_password }}"
+            validate_certs: false
+            force_basic_auth: true
+            status_code: 201
+          register: __create_application_aap
+
+        - set_fact:
+            controller_application_client_id: "{{ __create_application_aap.json.client_id }}"
+            controller_application_client_secret: "{{ __create_application_aap.json.client_secret }}"
+
+    ## SNOW - CREATE CERTIFICATE
+    - name: Retrieve our Certificate SNOW Object to be used to link AAP with SNOW
+      servicenow.itsm.api_info:
+        resource: sys_certificate
+        sysparm_query: name={{ snow_sys_certificate_name }}
+      register: get_sys_certificate
+
+    - set_fact:
+        snow_sys_certificate: "{{ get_sys_certificate.record | first }}"
+      when:
+        - get_sys_certificate.record is defined
+        - (get_sys_certificate.record | type_debug) is match('list')
+        - get_sys_certificate.record | length > 0
+
+    - block:
+        - name: Create Certificate SNOW Object to be used to link AAP with SNOW
+          servicenow.itsm.api:
+            resource: sys_certificate
+            action: post
+            data:
+              name: "{{ snow_sys_certificate_name }}"
+              pem_certificate: "{{ snow_sys_certificate_pem }}"
+              type: "{{ snow_sys_certificate_type }}"
+          register: new_sys_certificate
+
+        - set_fact:
+            snow_sys_certificate: "{{ new_sys_certificate.record }}"
+      when: (get_sys_certificate.record | length) == 0
+
+    - block:
+        - name: Update Certificate SNOW Object to be used to link AAP with SNOW
+          servicenow.itsm.api:
+            resource: sys_certificate
+            action: patch
+            sys_id: "{{ snow_sys_certificate.sys_id }}"
+            data:
+              name: "{{ snow_sys_certificate_name }}"
+              pem_certificate: "{{ snow_sys_certificate_pem }}"
+              type: "{{ snow_sys_certificate_type }}"
+          register: update_sys_certificate
+
+        - set_fact:
+            snow_sys_certificate: "{{ update_sys_certificate.record }}"
+      when: (get_sys_certificate.record | length) > 0
+
+    ## SNOW - OAUTH PROVIDER
+    - name: Retrieve our OAuth Third Party Provider
+      servicenow.itsm.api_info:
+        resource: oauth_entity
+        sysparm_query: name={{ snow_oauth_provider_name }}
+      register: get_oauth_entity
+
+    - set_fact:
+        snow_oauth_provider: "{{ get_oauth_entity.record | first }}"
+      when:
+        - get_oauth_entity.record is defined
+        - (get_oauth_entity.record | type_debug) is match('list')
+        - get_oauth_entity.record | length > 0
+
+    - block:
+        - name: Create OAuth Third Party Provider
+          servicenow.itsm.api:
+            resource: oauth_entity
+            action: post
+            data:
+              name: "{{ snow_oauth_provider_name }}"
+              type: "oauth_provider"
+              client_id: "{{ snow_oauth_provider_client_id }}"
+              client_secret: "{{ snow_oauth_provider_client_secret }}"
+              auth_url: "{{ snow_oauth_provider_auth_url }}"
+              token_url: "{{ snow_oauth_provider_token_url }}"
+              redirect_url: "{{ snow_oauth_provider_redirect_url }}"
+              comments: "{{ snow_oauth_provider_comments }}"
+              default_grant_type: "{{ snow_oauth_provider_default_grant_type }}"
+          register: new_oauth_profile
+
+        - set_fact:
+            snow_oauth_provider: "{{ new_oauth_profile.record }}"
+      when: (get_oauth_entity.record | length) == 0
+
+    - block:
+        - name: Update OAuth Third Party Provider
+          servicenow.itsm.api:
+            resource: oauth_entity
+            action: patch
+            sys_id: "{{ snow_oauth_provider.sys_id }}"
+            data:
+              name: "{{ snow_oauth_provider_name }}"
+              type: "oauth_provider"
+              client_id: "{{ snow_oauth_provider_client_id }}"
+              client_secret: "{{ snow_oauth_provider_client_secret }}"
+              auth_url: "{{ snow_oauth_provider_auth_url }}"
+              token_url: "{{ snow_oauth_provider_token_url }}"
+              redirect_url: "{{ snow_oauth_provider_redirect_url }}"
+              comments: "{{ snow_oauth_provider_comments }}"
+              default_grant_type: "{{ snow_oauth_provider_default_grant_type }}"
+          register: update_oauth_profile
+
+        - set_fact:
+            snow_oauth_provider: "{{ update_oauth_profile.record }}"
+      when: (get_oauth_entity.record | length) > 0
+
+    ## SNOW - OAUTH_ENTITY_SCOPE
+    - name: Retrieve our OAuth Third Party Provider
+      servicenow.itsm.api_info:
+        resource: oauth_entity_scope
+        sysparm_query: name={{ snow_oauth_entity_scope_name }}
+      register: get_oauth_entity_scope
+
+    - set_fact:
+        snow_oauth_entity_scope: "{{ get_oauth_entity_scope.record | first }}"
+      when:
+        - get_oauth_entity_scope.record is defined
+        - (get_oauth_entity_scope.record | type_debug) is match('list')
+        - get_oauth_entity_scope.record | length > 0
+
+    - block:
+        - name: Create OAuth Third Party Provider Entity Scope
+          servicenow.itsm.api:
+            resource: oauth_entity_scope
+            action: post
+            data:
+              name: "{{ snow_oauth_entity_scope_name }}"
+              oauth_entity: "{{ snow_oauth_provider.sys_id }}"
+              oauth_entity_scope: "{{ snow_oauth_entity_scope_value }}"
+              comments: "Created from Ansible"
+          register: new_oauth_entity_scope
+
+        - set_fact:
+            snow_oauth_entity_scope: "{{ new_oauth_entity_scope.record }}"
+      when: (get_oauth_entity_scope.record | length) == 0
+
+    - block:
+        - name: Update OAuth Third Party Provider Entity Scope
+          servicenow.itsm.api:
+            resource: oauth_entity_scope
+            action: patch
+            sys_id: "{{ snow_oauth_entity_scope.sys_id }}"
+            data:
+              name: "{{ snow_oauth_entity_scope_name }}"
+              oauth_entity: "{{ snow_oauth_provider.sys_id }}"
+              oauth_entity_scope: "{{ snow_oauth_entity_scope_value }}"
+              comments: "Created from Ansible"
+          register: update_oauth_entity_scope
+
+        - set_fact:
+            snow_oauth_entity_scope: "{{ update_oauth_entity_scope.record }}"
+      when: (get_oauth_entity_scope.record | length) > 0
+
+    ## SNOW - REST MESSAGE
+    - name: Retrieve our OAuth Third Party Provider
+      servicenow.itsm.api_info:
+        resource: sys_rest_message
+        sysparm_query: name={{ snow_sys_rest_message_fn_rest_message }}
+      register: get_sys_rest_message
+
+    - set_fact:
+        snow_sys_rest_message: "{{ get_sys_rest_message.record | first }}"
+      when:
+        - get_sys_rest_message.record is defined
+        - (get_sys_rest_message.record | type_debug) is match('list')
+        - get_sys_rest_message.record | length > 0
+
+    - block:
+        - name: Create REST Message
+          servicenow.itsm.api:
+            resource: sys_rest_message
+            action: post
+            data:
+              name: "{{ snow_sys_rest_message_fn_rest_message }}"
+              short_description: "{{ snow_sys_rest_message_short_description }}"
+              rest_endpoint: "{{ snow_sys_rest_message_rest_endpoint }}"
+              oauth2_profile: "{{ snow_oauth_provider_name }} default_profile"
+              authentication_type: oauth2
+              grant_type: authorization_code
+          register: new_sys_rest_message
+
+        - set_fact:
+            snow_sys_rest_message: "{{ new_sys_rest_message.record }}"
+      when: (get_sys_rest_message.record | length) == 0
+
+    - block:
+        - name: Update REST Message
+          servicenow.itsm.api:
+            resource: sys_rest_message
+            action: patch
+            sys_id: "{{ snow_sys_rest_message.sys_id }}"
+            data:
+              name: "{{ snow_sys_rest_message_fn_rest_message }}"
+              short_description: "{{ snow_sys_rest_message_short_description }}"
+              rest_endpoint: "{{ snow_sys_rest_message_rest_endpoint }}"
+              oauth2_profile: "{{ snow_oauth_provider_name }} default_profile"
+              authentication_type: oauth2
+              grant_type: authorization_code
+          register: update_sys_rest_message
+
+        - set_fact:
+            snow_sys_rest_message: "{{ update_sys_rest_message.record }}"
+      when: (get_sys_rest_message.record | length) > 0
+
+    ## SNOW - REST MESSAGE HTTP Request
+    - name: Retrieve our OAuth Third Party Provider
+      servicenow.itsm.api_info:
+        resource: sys_rest_message_fn
+        sysparm_query: function_name={{ snow_sys_rest_message_name }}
+      register: get_sys_rest_message_fn
+
+    - set_fact:
+        snow_sys_rest_message_fn: "{{ get_sys_rest_message_fn.record | first }}"
+      when:
+        - get_sys_rest_message_fn.record is defined
+        - (get_sys_rest_message_fn.record | type_debug) is match('list')
+        - get_sys_rest_message_fn.record | length > 0
+
+    - block:
+        - name: Create REST HTTP Request
+          servicenow.itsm.api:
+            resource: sys_rest_message_fn
+            action: post
+            data:
+              function_name: "{{ snow_sys_rest_message_name }}"
+              http_method: "{{ snow_sys_rest_message_fn_http_method }}"
+              rest_endpoint: "{{ snow_sys_rest_message_fn_rest_endpoint }}"
+              rest_message: "{{ snow_sys_rest_message_fn_rest_message }}"
+              content: "{{ snow_sys_rest_message_fn_content | to_nice_json }}"
+          register: new_get_sys_rest_message_fn
+
+        - set_fact:
+            snow_sys_rest_message_fn: "{{ new_get_sys_rest_message_fn.record }}"
+      when: (get_sys_rest_message_fn.record | length) == 0
+
+    - block:
+        - name: Update REST HTTP Request
+          servicenow.itsm.api:
+            resource: sys_rest_message_fn
+            action: patch
+            sys_id: "{{ snow_sys_rest_message_fn.sys_id }}"
+            data:
+              function_name: "{{ snow_sys_rest_message_name }}"
+              http_method: "{{ snow_sys_rest_message_fn_http_method }}"
+              rest_endpoint: "{{ snow_sys_rest_message_fn_rest_endpoint }}"
+              rest_message: "{{ snow_sys_rest_message_fn_rest_message }}"
+              content: "{{ snow_sys_rest_message_fn_content | to_nice_json }}"
+          register: update_get_sys_rest_message_fn
+
+        - set_fact:
+            snow_sys_rest_message_fn: "{{ update_get_sys_rest_message_fn.record }}"
+      when: (get_sys_rest_message_fn.record | length) > 0
+
+    ## SNOW - REST MESSAGE HTTP Request Headers
+    - name: Retrieve our OAuth Third Party Provider
+      servicenow.itsm.api_info:
+        resource: sys_rest_message_fn_headers
+        sysparm_query: function_name={{ snow_sys_rest_message_fn_headers_name }}
+      register: get_sys_rest_message_fn_headers
+
+    - set_fact:
+        snow_sys_rest_message_fn_headers: "{{ get_sys_rest_message_fn_headers.record | first }}"
+      when:
+        - get_sys_rest_message_fn_headers.record is defined
+        - (get_sys_rest_message_fn_headers.record | type_debug) is match('list')
+        - get_sys_rest_message_fn_headers.record | length > 0
+
+    - block:
+        - name: Create REST HTTP Request Headers
+          servicenow.itsm.api:
+            resource: sys_rest_message_fn_headers
+            action: post
+            data:
+              name: "{{ snow_sys_rest_message_fn_headers_name }}"
+              value: "application/json"
+              rest_message_function: "{{ snow_sys_rest_message_name }}"
+          register: new_get_sys_rest_message_fn_headers
+
+        - set_fact:
+            snow_sys_rest_message_fn_headers: "{{ new_get_sys_rest_message_fn_headers.record }}"
+      when: (get_sys_rest_message_fn_headers.record | length) == 0
+
+    - block:
+        - name: Update REST HTTP Request Headers
+          servicenow.itsm.api:
+            resource: sys_rest_message_fn_headers
+            action: patch
+            sys_id: "{{ snow_sys_rest_message_fn_headers.sys_id }}"
+            data:
+              name: "{{ snow_sys_rest_message_fn_headers_name }}"
+              value: "application/json"
+              rest_message_function: "{{ snow_sys_rest_message_name }}"
+          register: update_get_sys_rest_message_fn_headers
+
+        - set_fact:
+            snow_sys_rest_message_fn_headers: "{{ update_get_sys_rest_message_fn_headers.record }}"
+      when: (get_sys_rest_message_fn_headers.record | length) > 0
+
+    ## SNOW - REST MESSAGE HTTP Varibale Substitution
+    - include_tasks:
+        file: tasks/snow_sys_rest_message_fn_parameters.yaml
+      loop: "{{ snow_item_options }}"
+      loop_control:
+        loop_var: snow_item_option
+...

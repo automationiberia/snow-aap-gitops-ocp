@@ -1,0 +1,17 @@
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    ## https://github.com/argoproj/argo-cd/discussions/9112
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: ansible-automation-platform-operator
+  namespace: aap
+  labels:
+    openshift.io/cluster-monitoring: "true"
+    argocd.argoproj.io/managed-by: openshift-gitops
+spec:
+  targetNamespaces:
+    - aap
+...

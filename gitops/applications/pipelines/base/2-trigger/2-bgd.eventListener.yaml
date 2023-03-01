@@ -1,0 +1,32 @@
+---
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: EventListener
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  name: bgd-gitlab-event-listener
+  namespace: pipelines-demo
+spec:
+  serviceAccountName: pipeline
+  namespaceSelector: {}
+  resources: {}
+  triggers:
+    - name: bgd-gitlab-event-listener-trigger
+      # New variables from the received body
+      interceptors:
+        - ref:
+            name: cel
+          params:
+            - name: "overlays"
+              value:
+                - key: git-project-branch
+                  expression: "body.ref.split('/')[size(body.ref.split('/'))-1]"
+                - key: rawImage
+                  expression: "has(body.srcImage) ? body.srcImage.split('/')[size(body.srcImage.split('/'))-1] : '<quay-registry>/automationiberia/php81-bgd-alpine'"
+      # Trigger Bindings
+      bindings:
+        - ref: bgd-trigger-pipeline-binding
+      # Trigger Template
+      template:
+        ref: bgd-trigger-pipeline-template
+...

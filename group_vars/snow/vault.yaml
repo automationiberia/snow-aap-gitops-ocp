@@ -1,0 +1,12 @@
+---
+controller_hostname: "<aap.controller.host.name>"
+controller_username: "<aap-admin-username>"
+controller_password: "<aap-admin-password>"
+snow_host: "https://<snow-instance>.service-now.com"
+snow_username: "<snow-username>"
+snow_password: "<snow-password>"
+snow_sys_certificate_pem: |-
+  -----BEGIN CERTIFICATE-----
+  <snow-sys-certificate>
+  -----END CERTIFICATE-----
+...

@@ -1,0 +1,20 @@
+---
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerBinding
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  name: bgd-trigger-pipeline-binding
+  namespace: pipelines-demo
+spec:
+  # Variables to be used by the Trigger Template
+  params:
+    - name: gitrevision
+      value: $(extensions.git-project-branch)
+    - name: gitrepositoryurl
+      value: $(body.repository.html_url)
+    - name: rawImage
+      value: $(extensions.rawImage)
+    - name: Tag
+      value: $(body.tag)
+...

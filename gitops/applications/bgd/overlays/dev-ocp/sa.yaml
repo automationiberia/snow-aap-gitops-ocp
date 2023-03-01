@@ -1,0 +1,11 @@
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: bgd-sa-pull-secret
+  namespace: dev-ocp-bgd
+secrets:
+  - name: bgd-demo-pull-secret
+imagePullSecrets:
+  - name: bgd-demo-pull-secret
+...

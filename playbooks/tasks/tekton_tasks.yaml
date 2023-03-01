@@ -1,0 +1,178 @@
+---
+- name: "[Tekton Tasks] Clone a repo with separate git directory"
+  ansible.builtin.git:
+    repo: "{{ gitlab_repo_clone }}"
+    dest: "{{ gitlab_project_temp_dir }}"
+    version: "acm"
+  environment:
+      - GIT_SSL_NO_VERIFY: "true"
+
+- name: "[Tekton Tasks] Update the kustomize image"
+  ansible.builtin.blockinfile:
+    path: "{{ gitlab_project_temp_dir }}/gitops/applications/bgd/overlays/{{ cluster_file }}/kustomization.yaml"
+    block: |
+      images:
+        - name: php81-bgd-alpine
+          newName: "<quay-registry>/automationiberia/php81-bgd-alpine"
+          newTag: {{ SNOW_TAG }}
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ cluster_file }}"
+    insertbefore: "^...$"
+  loop:
+    - "{{ MY_SNOW_ENV }}-ocp"
+    - "{{ MY_SNOW_ENV }}-eks"
+  loop_control:
+    loop_var: cluster_file
+
+- debug:
+    msg: "{{ lookup('file', '{{ gitlab_project_temp_dir }}/gitops/applications/bgd/overlays/{{ cluster_file }}/kustomization.yaml') }}"
+  loop:
+    - "{{ MY_SNOW_ENV }}-ocp"
+    - "{{ MY_SNOW_ENV }}-eks"
+  loop_control:
+    loop_var: cluster_file
+
+- name: "[Tekton Tasks] Check if local changes exist in git"
+  command: git status
+  args:
+    chdir: "{{ gitlab_project_temp_dir }}"
+  register: git_status
+
+- block:
+    - name: "[Tekton Tasks] Git - Adding"
+      command: "git add *"
+      args:
+        chdir: "{{ gitlab_project_temp_dir }}"
+
+    - name: "[Tekton Tasks] Git - commiting"
+      command: git commit -m "Text updated automatically"
+      args:
+        chdir: "{{ gitlab_project_temp_dir }}"
+      environment:
+        - GIT_COMMITTER_NAME: "{{ gitlab_api_user }}"
+        - GIT_COMMITTER_EMAIL: "{{ gitlab_api_user_mail }}"
+        - GIT_AUTHOR_NAME: "{{ gitlab_api_user }}"
+        - GIT_AUTHOR_EMAIL: "{{ gitlab_api_user_mail }}"
+
+    - name: "[Tekton Tasks] Git - push"
+      command: git push
+      args:
+        chdir: "{{ gitlab_project_temp_dir }}"
+      environment:
+        - GIT_SSL_NO_VERIFY: "true"
+  when: '"untracked files present" in git_status.stdout or "Changes not staged for commit" in git_status.stdout'
+
+- name: "[Tekton Tasks] Recursively remove temp directory"
+  ansible.builtin.file:
+    path: "{{ gitlab_project_temp_dir }}"
+    state: absent
+
+- name: "[Tekton Tasks] Get the ArgoCD Route hostname"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Route
+    name: openshift-gitops-server
+    namespace: openshift-gitops
+  register: route
+
+- name: "[Tekton Tasks] Get the ArgoCD admin password"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: openshift-gitops-cluster
+    namespace: openshift-gitops
+  register: secret
+
+- name: "[Tekton Tasks] Get ArgoCD Token from Admin User"
+  uri:
+    url: 'https://{{ route.resources[0].spec.host }}/api/v1/session'
+    validate_certs: false
+    method: POST
+    body:
+      username: "admin"
+      password: "{{ secret.resources[0].data['admin.password'] | b64decode }}"
+    body_format: json
+    headers:
+      Content-Type: application/json
+    return_content: true
+  register: argocd_token
+
+- name: "[Tekton Tasks] Refresh argocd application {{ async_item }} (changes into {{ MY_SNOW_ENV }} branch)"
+  uri:
+    url: "https://{{ route.resources[0].spec.host }}/api/v1/applications/app-bootstrap-bgd-{{ 'eks-' if cluster_name is match('eks') else '' }}{{ 'primary' if MY_SNOW_ENV is match('pro') else 'secondary' }}-{{ MY_SNOW_ENV }}-{{ cluster_name }}?refresh=true"
+    validate_certs: false
+    method: GET
+    headers:
+      Authorization: "Bearer {{ (argocd_token.content|from_json).token }}"
+  loop:
+    - ocp
+    - eks
+  loop_control:
+    loop_var: cluster_name
+  register: async_refresh_results
+
+- name: "[Tekton Tasks] sync argocd application {{ async_item }} (changes into {{ MY_SNOW_ENV }} branch)"
+  uri:
+    url: "https://{{ route.resources[0].spec.host }}/api/v1/applications/app-bootstrap-bgd-{{ 'eks-' if cluster_name is match('eks') else '' }}{{ 'primary' if MY_SNOW_ENV is match('pro') else 'secondary' }}-{{ MY_SNOW_ENV }}-{{ cluster_name }}?sync"
+    validate_certs: false
+    method: POST
+    headers:
+      Authorization: "Bearer {{ (argocd_token.content|from_json).token }}"
+    status_code:
+      - 200
+      - 400
+  loop:
+    - ocp
+    - eks
+  loop_control:
+    loop_var: cluster_name
+  failed_when:
+    - async_sync_results.json.error is defined
+    - '"another operation is already in progress" not in async_sync_results.json.error'
+  register: async_sync_results
+
+- name: "[Tekton Tasks] Get application URL from ArgoCD destination server"
+  uri:
+    url: "https://{{ route.resources[0].spec.host }}/api/v1/applications/app-bootstrap-bgd-{{ 'primary' if MY_SNOW_ENV is match('pro') else 'secondary' }}-{{ MY_SNOW_ENV }}-ocp"
+    validate_certs: false
+    method: GET
+    headers:
+      Authorization: "Bearer {{ (argocd_token.content|from_json).token }}"
+    status_code:
+      - 200
+  register: argo_app
+
+- name: "Set the host where the app is running at"
+  set_fact:
+    app_server: "{{ argo_app.json.spec.destination.server | regex_replace('^https://api.','') | regex_replace(':6443$', '') }}"
+
+- name: "[Tekton Tasks] Block to check the base image has been updated successfully"
+  block:
+    - name: "[Tekton Tasks] Check web app"
+      uri:
+        url: "http://bgd-{{ MY_SNOW_ENV }}-ocp-bgd.apps.{{ app_server }}/read_from_file.txt"
+        method: GET
+        body_format: json
+        status_code: 200
+        return_content: true
+      register: app_result
+      until: app_result.content is match (SNOW_MESSAGE_TEXT)
+      delay: 2
+      retries: 100
+
+  rescue:
+    - name: "[Tekton Tasks] Create new incident"
+      servicenow.itsm.incident:
+        state: new
+        short_description: "New App incident ({{ MY_SNOW_ENV }})"
+      register: incident_register
+      environment:
+        SN_HOST: "{{ snow_host }}"
+        SN_USERNAME: "{{ snow_username }}"
+        SN_PASSWORD: "{{ snow_password }}"
+
+    - name: "[Tekton Tasks] End the execution"
+      fail:
+        msg: |
+          The application couldn't be deployed, an incident has been created with number: {{ incident_register.record.number }}
+          URL: "{{ lookup('env', 'SN_HOST') }}/nav_to.do?uri=incident.do?sys_id={{ incident_register.record.sys_id }}%26sysparm_view=ess"
+...

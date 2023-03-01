@@ -1,0 +1,47 @@
+---
+- hosts: all
+  connection: local
+  gather_facts: false
+  vars:
+    SNOW_TAG: "1.0.3"
+    SNOW_MESSAGE_TEXT: "The image tag that is being in use is {{ SNOW_TAG }}"
+    web_app_main_url: "<http://app-main-url>"
+  tasks:
+    - block:
+        - name: "Check web app"
+          uri:
+            url: "{{ web_app_main_url }}/read_from_file.txt"
+            method: GET
+            body_format: json
+            status_code: 200
+            return_content: true
+          register: app_result
+          until: app_result.content is match (SNOW_MESSAGE_TEXT)
+          delay: 2
+          retries: 10
+
+      rescue:
+        - name: Create new incident
+          servicenow.itsm.incident:
+            state: new
+            short_description: New App incident
+          register: incident_register
+          environment:
+            SN_HOST: "{{ snow_host }}"
+            SN_USERNAME: "{{ snow_username }}"
+            SN_PASSWORD: "{{ snow_password }}"
+
+        - name: Retrieve a specific incident by its sys_id
+          servicenow.itsm.incident_info:
+            sys_id: "{{ incident_register.record.sys_id }}"
+          register: result_incident
+          environment:
+            SN_HOST: "{{ snow_host }}"
+            SN_USERNAME: "{{ snow_username }}"
+            SN_PASSWORD: "{{ snow_password }}"
+
+        - debug:
+            msg:
+              - "{{ result_incident }}"
+              - "{{ lookup('env', 'SN_HOST') }}/nav_to.do?uri=incident.do?sys_id={{ incident_register.record.sys_id }}%26sysparm_view=ess"
+...

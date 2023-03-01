@@ -1,0 +1,8 @@
+---
+collections:
+  - ansible.controller
+  - ansible.utils
+  - community.general
+  # - infra.controller_configuration
+  - servicenow.itsm
+...

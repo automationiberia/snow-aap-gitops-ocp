@@ -1,0 +1,58 @@
+---
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerTemplate
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  name: bgd-trigger-pipeline-template
+  namespace: pipelines-demo
+spec:
+  # Trigger Template parameters (used as tt.params.<param_name>)
+  params:
+    - name: Tag
+    - name: rawImage
+    - name: gitrevision
+    - name: gitrepositoryurl
+  resourcetemplates:
+    # Pipeline Runs to be created from templates
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        annotations:
+          pipeline.openshift.io/started-by: <ocp-admin-user>
+        generateName: build-and-push-
+        namespace: pipelines-demo
+        labels:
+          tekton.dev/pipeline: build-and-push
+      spec:
+        params:
+          - name: git-url
+            value: "$(tt.params.gitrepositoryurl)"
+          - name: git-revision
+            value: "$(tt.params.gitrevision)"
+          - name: IMAGE
+            value: "$(tt.params.rawImage)"
+          - name: TAG
+            value: "$(tt.params.Tag)"
+        pipelineRef:
+          name: build-and-push
+        podTemplate:
+          securityContext:
+            fsGroup: 65532
+        serviceAccountName: pipeline
+        timeout: 1h0m0s
+        workspaces:
+          - name: shared-workspace
+            volumeClaimTemplate:
+              metadata:
+                creationTimestamp: null
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 1Gi
+                storageClassName: gp2
+                volumeMode: Filesystem
+              status: {}
+...

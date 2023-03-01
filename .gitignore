@@ -1,0 +1,5 @@
+.vault_password
+ansible-navigator.log
+bootstrap-artifact*
+*.json
+collections/ansible_collections/*

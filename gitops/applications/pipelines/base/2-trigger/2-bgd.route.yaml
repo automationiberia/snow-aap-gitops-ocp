@@ -1,0 +1,17 @@
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  name: el-bgd-gitlab-event-listener-route
+  namespace: pipelines-demo
+spec:
+  port:
+    targetPort: http-listener
+  to:
+    kind: Service
+    name: el-bgd-gitlab-event-listener
+    weight: 100
+  wildcardPolicy: None
+...

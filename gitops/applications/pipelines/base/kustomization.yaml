@@ -1,0 +1,28 @@
+---
+resources:
+  - 0-namespace.yaml
+  - 0-subscription.yaml
+  - 0-secret.yaml
+
+  - 1-pipeline/1-bgd.pipeline.yaml
+
+  - 2-trigger/2-bgd.eventListener.yaml
+  - 2-trigger/2-bgd.route.yaml
+  - 2-trigger/2-bgd.triggerPipelineBinding.yaml
+  - 2-trigger/2-bgd.triggerPipelineTemplate.yaml
+
+  # - 2-bgd.secret.yaml
+  # - 2-bgd.sa.yaml
+
+  # - 3-patches/3-bgd.secret.yaml
+  - 3-patches/3-bgd.sa.yaml
+  - 3-patches/3-bgd.sa-clusterrolebinding.yaml
+
+#patches:
+#  - path: 3-patches/3-bgd.patch_sa.yaml
+#    target:
+#      version: v1
+#      kind: ServiceAccount
+#      name: pipeline
+#      namespace: pipelines-demo
+...

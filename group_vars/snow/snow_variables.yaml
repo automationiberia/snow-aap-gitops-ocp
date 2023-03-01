@@ -1,0 +1,67 @@
+---
+#
+# REST Message variables
+#
+controller_validate_certs: false
+drop_user_external_accounts: false
+query_controller_api_max_objects: 10000
+controller_application_name: "Demo_ServiceNow_Gitops_SNOW_APP"
+controller_api_plugin: "ansible.controller.controller_api"
+snow_oauth_provider_name: "Demo_ServiceNow_Gitops_AAP_OAuth_Provider_Name"
+snow_oauth_provider_comments: "Created from Ansible"
+snow_oauth_provider_default_grant_type: "authorization_code"
+snow_oauth_provider_client_id: "{{ controller_application_client_id }}"
+snow_oauth_provider_client_secret: "{{ controller_application_client_secret }}"
+snow_oauth_provider_auth_url: "https://{{ controller_hostname }}/api/o/authorize/"
+snow_oauth_provider_token_url: "https://{{ controller_hostname }}/api/o/token/"
+snow_oauth_provider_redirect_url: "{{ snow_host }}/oauth_redirect.do"
+snow_oauth_entity_scope_name: "Demo_ServiceNow_Gitops_OAuth_Writing_Scope"
+snow_oauth_entity_scope_value: "write"
+snow_oauth_entity_scope_comments: "Created from Ansible"
+snow_sys_rest_message_name: "Demo_ServiceNow_Gitops_REST_Message"
+snow_sys_rest_message_short_description: "Demo_ServiceNow_Gitops_REST_Message"
+snow_sys_rest_message_rest_endpoint: "https://{{ controller_hostname }}/api"
+snow_sys_rest_message_fn_rest_message: "Demo_ServiceNow_Gitops_REST_POST_Message"
+snow_sys_rest_message_fn_rest_endpoint: "https://{{ controller_hostname }}/api/v2/workflow_job_templates/10/launch/"
+snow_sys_rest_message_fn_http_method: "post"
+snow_sys_rest_message_fn_content:
+  extra_vars:
+    SNOW_TAG: "${snow_tag}"
+    SNOW_ENV: "${snow_env}"
+    from_snow: true
+snow_sys_rest_message_fn_headers_name:  "Content-Type"
+snow_sys_certificate_name: "Demo_ServiceNow_Gitops_Controller_DEV_Receptor_Root_CA"
+snow_sys_certificate_type: "Trust Store Cert"
+#
+# Service Catalog variable
+#
+snow_catalog_title: "Service Catalog"
+snow_category_title: "Standard Changes"
+snow_catalog_item_name: "Demo ServiceNow Gitops Launch New AAP Auto deployment"
+snow_catalog_item_short_desc: "Demo ServiceNow Gitops Create a new deployment based on the AAP Workflow"
+snow_item_option_set_title: "Demo_ServiceNow_Gitops_INPUT_VARS"
+snow_item_options:
+  - name: "Demo_ServiceNow_Gitops_ENV"
+    question: "What environment will have the new deployment"
+    mandatory: true
+    default_value: "dev"
+    type: 3 # Multiple Choices
+    param_name: "snow_env"
+    choices:
+      - text: "DEV and PRE"
+        value: dev
+      - text: PRO
+        value: pro
+  - name: "Demo_ServiceNow_Gitops_TAG"
+    question: "What's the new TAG?"
+    mandatory: true
+    type: 6 # Single Line Text
+    param_name: "snow_tag"
+snow_catalog_variable_set_title: "Demo_ServiceNow_Gitops_catalog_variable_set"
+#
+# Workflow variable
+#
+snow_workflow_name: "Demo_ServiceNow_Gitops_Workflow"
+snow_workflow_short_description: "Red Hat Demo Service Now"
+snow_workflow_activity_name: "Demo_ServiceNow_Gitops_Activity"
+...

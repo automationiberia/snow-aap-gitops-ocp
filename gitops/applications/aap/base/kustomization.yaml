@@ -1,0 +1,14 @@
+---
+resources:
+  - namespace.yaml
+  - operatorgroup.yaml
+  - subscription.yaml
+# https://docs.ansible.com/automation-controller/latest/html/administration/containers_instance_groups.html#create-a-container-group
+# https://docs.ansible.com/automation-controller/latest/html/administration/_downloads/7a0708e6c2113e9601bf252270fa6c50/containergroup-sa.yml
+#  - automation-container-groups-role-binding.yaml
+#  - automation-container-groups-role.yaml
+#  - automation-container-groups-sa.yaml
+  - automationcontroller_dev.yaml
+#  - automationcontroller_prd.yaml
+  - automationhub.yaml
+...
