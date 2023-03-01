@@ -1,4 +1,4 @@
-# Service Now Objects Creation
+# Playbooks for Service Now Objects Creation
 
 Three playbooks are provided to create the following objects:
 
@@ -23,3 +23,14 @@ After executing the first playbook, the REST Message object will be created or u
 
 ![ServiceNow Get OAuth Token](images/../../images/SNowGetOAuthToken.png)
 
+# Playbook for Automation Process (Logic)
+
+The playbook `tekton.yaml` is intended to contain all the automation logic to be executed from the Red Hat Ansible Automation Controller's Job template. In this demo, all the logic includes the following steps:
+
+1. Clone the source code of the application from the git repository.
+2. Build and push the new container image into the configured Quay repository. 
+3. Force a refresh and a Sync process for the K8S application's manifests at Red Hat Openshift Gitops (ArgoCD).
+4. Check that the application has been successfully re/deployed.
+5. Promote the image to the following environment (as per the lifecycle definition).
+
+The deployment of the application is controlled through the ACM K8S Placement object, which filters which clusters should deploy the application according to certain criteria.
