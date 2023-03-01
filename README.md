@@ -101,3 +101,5 @@ $ ansible-navigator run bootstrap.yaml -i inventory -l cluster2 -m stdout --eei
     * Project
     * Job Templates
     * Workflow Job Template 
+* Assign the needed roles to the Service Accounts to let connection to Quay
+* 
