@@ -94,3 +94,10 @@ $ ansible-navigator run bootstrap.yaml -i inventory -l cluster2 -m stdout --eei
 |`aap_ocp_namespace`|n/a|ansible-automation-platform|Name of the namespace where the AAP will be deployed|'ansible-automation-platform'|
 |`quay_ocp_namespace`|n/a|quay-registry|Name of the namespace where the Quay will be deployed|'quay-registry'|
 |`pipelines_ocp_namespace`|n/a|pipelines-demo|Name of the namespace where the Openshift Pipelines will be deployed|'pipelines-demo'|
+
+# ToDo:
+
+* Add the AAP CasC to deploy the needed objects:
+    * Project
+    * Job Templates
+    * Workflow Job Template 
