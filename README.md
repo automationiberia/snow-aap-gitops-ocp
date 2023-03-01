@@ -1,6 +1,6 @@
 # Important initial considerations
 
-In order to the content in the repo to be functional, all the content marked between the signs `<>` must be reviewed. The needed sensitive information can be vaulted using `ansible-vault`.
+In order to the content in the repo to be functional, all the content marked between the signs `<>` must be reviewed. A list of involved files can be obtained running the following command: `grep -RE "<|>"`. The needed sensitive information can be vaulted using `ansible-vault`.
 
 The idea behind this repo is to implement the following flow of things:
 
