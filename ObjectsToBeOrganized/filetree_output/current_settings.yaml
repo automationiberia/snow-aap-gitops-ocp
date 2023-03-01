@@ -1,0 +1,27 @@
+---
+controller_settings:
+  - settings:
+      ALLOW_OAUTH2_FOR_EXTERNAL_USERS: true
+      AUTH_LDAP_GROUP_TYPE_PARAMS:
+          member_attr: member
+          name_attr: cn
+      AWX_TASK_ENV:
+          HOME: /var/lib/awx
+      INSIGHTS_TRACKING_STATE: true
+      INSTALL_UUID: 002fd241-d93d-4b6d-a624-18d49795931b
+      LICENSE:
+          instance_count: 100
+          license_date: '1798779599'
+          license_type: enterprise
+          pool_id: 2c94e6ec82d07ca50182d58706713d05
+          product_name: Red Hat Ansible Automation Platform, Standard (100 Managed Nodes)
+          satellite: false
+          sku: MCT3691
+          subscription_name: Red Hat Ansible Automation Platform, Standard (100 Managed
+              Nodes)
+          support_level: null
+          valid_key: true
+      PENDO_TRACKING_STATE: detailed
+      TOWER_URL_BASE: https://<controller_host>
+
+...

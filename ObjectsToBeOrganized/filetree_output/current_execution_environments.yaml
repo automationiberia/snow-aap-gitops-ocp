@@ -1,0 +1,19 @@
+---
+controller_execution_environments:
+  - name: "Control Plane Execution Environment"
+    description: ""
+    image: "registry.redhat.io/ansible-automation-platform-23/ee-supported-rhel8@sha256:077a473b92818e166a98671f15e280b1516c10d425a9980a3dad73cebb14fc55"
+    pull: ""
+  - name: "Default execution environment"
+    description: ""
+    image: "registry.redhat.io/ansible-automation-platform-23/ee-supported-rhel8@sha256:077a473b92818e166a98671f15e280b1516c10d425a9980a3dad73cebb14fc55"
+    pull: ""
+  - name: "Ansible Engine 2.9 execution environment"
+    description: ""
+    image: "registry.redhat.io/ansible-automation-platform-23/ee-29-rhel8@sha256:0717a33038662d71ed008b1e6bfb1a41afc708b52825b23173f2b10970bfd683"
+    pull: ""
+  - name: "Minimal execution environment"
+    description: ""
+    image: "registry.redhat.io/ansible-automation-platform-23/ee-minimal-rhel8@sha256:9f775c34e62eebd5d5d2ba2191857c6c726f2acf4f815e932297a2240f9b42ab"
+    pull: ""
+...

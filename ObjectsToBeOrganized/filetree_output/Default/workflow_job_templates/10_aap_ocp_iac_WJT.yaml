@@ -1,0 +1,27 @@
+---
+controller_workflows:
+  - name: "aap_ocp_iac_WJT"
+    description: ""
+    organization: "Default"
+    state: "present"
+    simplified_workflow_nodes:
+      - identifier: "5a2f8db8-29e0-4508-8688-2dc9e9c44670"
+        workflow_job_template: "aap_ocp_iac_WJT"
+        unified_job_template: "aap_ocp_iac_JT"
+        organization: "Default"
+        all_parents_must_converge: "False"
+        failure_nodes:
+          - 515e5d2d-bdcd-41bb-815b-781ca29eb240
+      - identifier: "515e5d2d-bdcd-41bb-815b-781ca29eb240"
+        workflow_job_template: "aap_ocp_iac_WJT"
+        unified_job_template: "New_SNOW_Incident"
+        organization: "Default"
+        all_parents_must_converge: "False"
+    survey_enabled: "False"
+    ask_variables_on_launch: "True"
+    allow_simultaneous: "False"
+    scm_branch: ""
+    webhook_service: ""
+    survey_enabled: False
+    survey_spec: {}
+...

@@ -1,0 +1,12 @@
+---
+controller_instance_groups:
+  - name: "controlplane"
+    policy_instance_minimum: "0"
+    policy_instance_percentage: "100"
+    instances:
+      - "controller-dev-demo-684d44b5c8-kntnr"
+  - name: "default"
+    policy_instance_minimum: "0"
+    policy_instance_percentage: "100"
+    instances:
+...

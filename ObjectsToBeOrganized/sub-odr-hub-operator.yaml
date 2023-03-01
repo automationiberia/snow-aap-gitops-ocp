@@ -1,0 +1,14 @@
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: odr-hub-operator-stable-4.11-redhat-operators-openshift-marketplace
+  namespace: openshift-operators
+spec:
+  channel: stable-4.11
+  installPlanApproval: Automatic
+  name: odr-hub-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  startingCSV: odr-hub-operator.v4.11.5
+...

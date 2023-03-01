@@ -21,9 +21,9 @@ The repo contains the following things:
 ├── collections
 │   └── requirements.yaml               (3)
 ├── gitops                              (4)
-│   ├── applications                    
-│   ├── bootstrap                       
-│   └── installation                    
+│   ├── applications
+│   ├── bootstrap
+│   └── installation
 ├── group_vars                          (5)
 │   ├── all
 │   ├── cluster1
@@ -100,6 +100,12 @@ $ ansible-navigator run bootstrap.yaml -i inventory -l cluster2 -m stdout --eei
 * Add the AAP CasC to deploy the needed objects:
     * Project
     * Job Templates
-    * Workflow Job Template 
+    * Workflow Job Template
 * Assign the needed roles to the Service Accounts to let connection to Quay
 * ACM related K8S objects
+* Although our intention is to have all the content defined as code and created automatically, there are some points pending. They are placed in the repository as files, pending to be consumed by a playbook or similar in an automated way. These files are located at the directory `ObjectsToBeOrganized`, and mainly contains two directories:
+    * acm: Contains the objects numbered with the order to be created successfully.
+    * filetree_output: Contains the object definitions for the AAP. More information about how to use them in [redhat_cop.controller_configuration](https://github.com/redhat-cop/controller_configuration/tree/devel/roles/filetree_read)
+    * sub-odf-multicluster-orchestrator.yaml: subscription to the ODF Multicluster Orchestrator Openshift Operator (not used by this demo)
+    * sub-odr-hub-operator.yaml: subscription to the multicluster ODR Hub Openshift Operator (not used by this demo)
+

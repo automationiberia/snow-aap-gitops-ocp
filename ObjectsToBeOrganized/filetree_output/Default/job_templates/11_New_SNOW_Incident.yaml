@@ -1,0 +1,22 @@
+---
+controller_templates:
+  - name: "New_SNOW_Incident"
+    description: ""
+    organization: "Default"
+    project: "aap_ocp_iac_project"
+    inventory: "Demo Inventory"
+    playbook: "playbooks/snow_open_incident.yml"
+    job_type: "run"
+    fact_caching_enabled: "False"
+    credentials:
+      - "AAP Credential"
+      - "Service Now Cred"
+    concurrent_jobs_enabled: "True"
+    ask_scm_branch_on_launch: "False"
+    ask_tags_on_launch: "False"
+    ask_verbosity_on_launch: "False"
+    ask_variables_on_launch: "True"
+    execution_environment: "__omit_place_holder__79d9c36e91ac26b747de0dba0cada1adaa878171"
+    survey_enabled: False
+    survey_spec: {}
+...

@@ -1,0 +1,22 @@
+---
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
+metadata:
+  name: app-gitops-placement-eks-pre
+  namespace: openshift-gitops
+spec:
+  clusterSets:
+    - eksclusterset
+  predicates:
+  - requiredClusterSelector:
+      labelSelector:
+        matchExpressions:
+        - key: vendor
+          operator: "In"
+          values:
+          - EKS
+        - key: name
+          operator: "In"
+          values:
+          - eks-secondary
+...

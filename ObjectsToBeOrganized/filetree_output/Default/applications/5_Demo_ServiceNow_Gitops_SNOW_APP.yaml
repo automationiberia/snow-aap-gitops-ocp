@@ -1,0 +1,11 @@
+---
+controller_applications:
+  - name: "Demo_ServiceNow_Gitops_SNOW_APP"
+    description: "description"
+    organization: "Default"
+    authorization_grant_type: "authorization-code"
+    redirect_uris: "https://dev146905.service-now.com/oauth_redirect.do"
+    skip_authorization: "False"
+    client_id: "k5t39g49THa0IvQVNgML0xCK12Z5usLI6ppgHxqH"
+    client_type: "confidential"
+...
